@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -15,14 +15,64 @@ import {
   Text,
   StatusBar,
 } from 'react-native';
-import { Searchbar } from 'react-native-paper';
+import {Button} from 'react-native-paper';
+import cheerio from 'cheerio';
+import _ from 'lodash';
 
-import {
-  Colors
-} from 'react-native/Libraries/NewAppScreen';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 import ProductSearchbar from './src/javascripts/components/ProductSearchbar';
+import ProductSearchSubmitButton from './src/javascripts/components/ProductSearchSubmitButton';
+
+const URL = 'https://camelcamelcamel.com/search?sq=avermedia&p=1';
+
+const example = {
+  itemName: {
+    amazonPrice: undefined,
+    thirdPartyNewPrice: undefined,
+    thirdParterUsedPrice: undefined
+  }
+}
 
 const App: () => React$Node = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [results, setResults] = useState({});
+
+  useEffect(() => {
+    const results = {};
+    async function fetchData(url) {
+      const data = await fetch(url);
+      const $ = cheerio.load(await data.text());
+
+      const rows = $('.search_results .row')
+        .get()
+        .map(row => {
+          const $names = $(row).find('a[x-camel-place="Search - Title"]').text()
+          const $tables = $(row).find('tbody').get().map(tr => {
+            const priceObj = {};
+            const $priceType = $(tr).find('a[x-camel-place="Search - Price Type"]').text();
+            const $price = $(tr).find('.text-right').text();
+            console.log('priceType', $priceType);
+            console.log('price', $price);
+            priceObj[$priceType] = $price;
+            // _.merge(results, priceObj);
+            return priceObj
+          })
+        });
+
+      console.log('rows', rows);
+      return $
+    }
+
+    fetchData(URL);
+  }, [searchQuery])
+
+  const handleChangeText = query => {
+    setSearchQuery(query);
+  };
+  const handleSearchSubmit = query => {
+    console.log('pressed mfer', searchQuery)
+  };
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
@@ -37,30 +87,15 @@ const App: () => React$Node = () => {
           )}
           <View style={styles.body}>
             <View style={styles.sectionContainer}>
-              <ProductSearchbar />
+              <ProductSearchbar handleChangeText={handleChangeText} searchQuery={searchQuery} />
             </View>
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>Your Mother</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
+              <View style={styles.buttonContainer}>
+                <ProductSearchSubmitButton
+                  handleSearchSubmit={handleSearchSubmit}
+                  placeholder='Submit'
+                />
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -106,6 +141,9 @@ const styles = StyleSheet.create({
     paddingRight: 12,
     textAlign: 'right',
   },
+  buttonContainer: {
+    alignItems: 'center'
+  }
 });
 
 export default App;
